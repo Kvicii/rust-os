@@ -2,50 +2,50 @@ SECTION .text
 USE16
 ; provide function for printing in x86 real mode
 
-
-; a newline
-newline: db 0xD, 0xA, 0
-
 ; print a string and a newline
-; IN
-;   si: points at zero-terminated String
 ; CLOBBER
 ;   ax
 print_line:
-    mov si, newline
-    call print
-    ret
+    mov al, 13
+    call print_char
+    mov al, 10
+    jmp print_char
 
 ; print a string
 ; IN
 ;   si: points at zero-terminated String
 ; CLOBBER
-;   ax
+;   si, ax
 print:
+    pushf
+    cld
+.loop:
     lodsb
     test al, al
     jz .done
     call print_char
-    jmp print
+    jmp .loop
 .done:
+    popf
     ret
 
 ; print a character
 ; IN
 ;   al: character to print
-; CLOBBER
-;   ah
 print_char:
+    pusha
+    mov bx, 7
     mov ah, 0x0e
     int 0x10
+    popa
     ret
 
 ; print a number in hex
 ; IN
 ;   bx: the number
 ; CLOBBER
-;   cx, ax
-print_num:
+;   al, cx
+print_hex:
     mov cx, 4
 .lp:
     mov al, bh

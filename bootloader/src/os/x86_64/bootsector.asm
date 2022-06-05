@@ -12,23 +12,35 @@ boot: ; dl comes with disk
     ; initialize stack
     mov sp, 0x7C00
 
+    ; initialize CS
+    push ax
+    push word .set_cs
+    retf
+
+.set_cs:
+
+    ; save disk number
     mov [disk], dl
 
     mov si, name
     call print
     call print_line
 
-    mov bh, 0
-    mov bl, [disk]
-    call print_num
+    mov bx, (startup_start - boot) / 512
+    call print_hex
     call print_line
 
-    mov ax, (startup_start - boot) / 512
+    mov bx, startup_start
+    call print_hex
+    call print_line
+
+    mov eax, (startup_start - boot) / 512
     mov bx, startup_start
     mov cx, (startup_end - startup_start) / 512
     xor dx, dx
     call load
 
+    call print_line
     mov si, finished
     call print
     call print_line
@@ -47,49 +59,25 @@ boot: ; dl comes with disk
 ; TODO rewrite to (eventually) move larger parts at once
 ; if that is done increase buffer_size_sectors in startup-common to that (max 0x80000 - startup_end)
 load:
-    cmp cx, 64
+    cmp cx, 127
     jbe .good_size
 
     pusha
-    mov cx, 64
+    mov cx, 127
     call load
     popa
-    add ax, 64
-    add dx, 64 * 512 / 16
-    sub cx, 64
+    add eax, 127
+    add dx, 127 * 512 / 16
+    sub cx, 127
 
     jmp load
 .good_size:
-    mov [DAPACK.addr], ax
+    mov [DAPACK.addr], eax
     mov [DAPACK.buf], bx
     mov [DAPACK.count], cx
     mov [DAPACK.seg], dx
 
-    mov si, loading
-    call print
-
-    mov bx, [DAPACK.addr]
-    call print_num
-
-    mov al, '#'
-    call print_char
-
-    mov bx, [DAPACK.count]
-    call print_num
-
-    mov al, ' '
-    call print_char
-
-    mov bx, [DAPACK.seg]
-    call print_num
-
-    mov al, ':'
-    call print_char
-
-    mov bx, [DAPACK.buf]
-    call print_num
-
-    call print_line
+    call print_dapack
 
     mov dl, [disk]
     mov si, DAPACK
@@ -98,7 +86,46 @@ load:
     jc error
     ret
 
+print_dapack:
+    mov al, 13
+    call print_char
+
+    mov bx, [DAPACK.addr + 2]
+    call print_hex
+
+    mov bx, [DAPACK.addr]
+    call print_hex
+
+    mov al, '#'
+    call print_char
+
+    mov bx, [DAPACK.count]
+    call print_hex
+
+    mov al, ' '
+    call print_char
+
+    mov bx, [DAPACK.seg]
+    call print_hex
+
+    mov al, ':'
+    call print_char
+
+    mov bx, [DAPACK.buf]
+    call print_hex
+
+    ret
+
 error:
+    call print_line
+
+    mov bh, 0
+    mov bl, ah
+    call print_hex
+
+    mov al, ' '
+    call print_char
+
     mov si, errored
     call print
     call print_line
@@ -107,13 +134,11 @@ error:
     hlt
     jmp .halt
 
-%include "print16.asm"
+%include "print.asm"
 
-name: db "Redox Loader",0
-loading: db "Load ",0
+name: db "Redox Loader - Stage One",0
 errored: db "Could not read disk",0
-finished: db "Finished Loading",0
-line: db 13,10,0
+finished: db "Redox Loader - Stage Two",0
 
 disk: db 0
 
@@ -123,9 +148,9 @@ DAPACK:
 .count: dw 0 ; int 13 resets this to # of blocks actually read/written
 .buf:   dw 0 ; memory buffer destination address (0:7c00)
 .seg:   dw 0 ; in memory page zero
-.addr:  dd 0 ; put the lba to read in this spot
-        dd 0 ; more storage bytes only for big lba's ( > 4 bytes )
+.addr:  dq 0 ; put the lba to read in this spot
 
-times 510-($-$$) db 0
+times 446-($-$$) db 0
+partitions: times 4 * 16 db 0
 db 0x55
 db 0xaa

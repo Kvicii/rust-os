@@ -57,7 +57,7 @@ VBE.ModeAttributes:
 	.vgacompatible equ 1 << 5
 	.notbankable equ 1 << 6
 	.linearframebuffer equ 1 << 7
-
+	
 ABSOLUTE 0x5400
 VBEEDID:
 	.header resb 8
@@ -88,4 +88,3 @@ VBEEDID:
 	.descriptorblock4	resb 18
 	.extensionflag	resb 1
 	.checksum	resb 1
- No newline at end of file
