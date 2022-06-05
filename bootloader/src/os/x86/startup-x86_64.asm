@@ -17,6 +17,8 @@ startup_arch:
     ;Link first PML4 to PDP
     mov DWORD [es:edi], 0x71000 | 1 << 1 | 1
     add edi, 0x1000
+    ;Link last PML4 to PML4
+    mov DWORD [es:edi - 8], 0x70000 | 1 << 1 | 1
     ;Link first PDP to PD
     mov DWORD [es:edi], 0x72000 | 1 << 1 | 1
     add edi, 0x1000
@@ -71,13 +73,11 @@ long_mode:
 
     ;rust init
     xor rax, rax
+    mov eax, [kernel_base + 0x18]
     mov rbx, gdtr
+    xchg bx, bx
     jmp rax
     int 0xFF
-.lp:
-    sti
-    hlt
-    jmp .lp
 
     gdtr:
         dw gdt.end + 1  ; size
@@ -179,5 +179,3 @@ long_mode:
             at TSS.iomap_base, dw 0xFFFF
         iend
     .end:
-
-    %include "interrupts-x86_64.asm"
